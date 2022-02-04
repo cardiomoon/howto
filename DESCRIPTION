@@ -1,0 +1,22 @@
+Package: howto
+Type: Package
+Title: How to Perform Survial Analysis
+Version: 0.1.0
+Authors@R: person("Keon-Woong","Moon", email="cardiomoon@gmail.com",
+    role=c("aut", "cre"))
+Description: Make tables demonstrating how to perform statistical tests including 
+  survival analysis and log-rank test. 
+Imports:
+   flextable,
+   officer,
+   tibble,
+   ftExtra,
+   purrr,
+   dplyr,
+   rlang,
+   autoReg,
+   survival
+License: GPL-3
+LazyData: true
+Encoding: UTF-8
+RoxygenNote: 7.1.2

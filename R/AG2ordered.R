@@ -32,7 +32,7 @@ AG2ordered=function(data,id="id",status="status",start="start",stop="stop"){
       qid
       m=c(m,length(mid))
       q=c(q,length(qid))
-      subid=c(subid,paste0(sort(c(mid,qid)),collapse=","))
+      subid=c(subid,paste0(sort(unique(c(mid,qid))),collapse=","))
   }
   data.frame(t=ftime,n=n,m=m,q=q,id=subid)
 }

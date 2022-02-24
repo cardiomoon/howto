@@ -1,0 +1,232 @@
+---
+title: "Kaplan-Meier 생존곡선과 로그순위검정"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{howto}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",out.width="70%",dpi=200,fig.height=5,fig.width=7
+)
+```
+
+```{r setup}
+library(howto)
+```
+
+이번 장에서는 생존데이터에서 어떻게 생존률을 계산하는지 알아보고 R을 이용하여 Kaplan-Meier(KM) 생존곡선을 그리는 방법을 알아보고자 한다. 또한 두 개 이상의 생존곡선이 같은지 검정하는 로그순위검정을 하는 방법을 알아본다.
+
+## KM 생존곡선
+
+autoReg 패키지에 포함되어 있는 anderson 데이터를 사용한다. anderson 데이터는 42명의 백혈병 환자 데이터로 time 은 추적 주수(weeks), status는 재발한 경우는 1, 재발하지 않은 경우(중도절단의 경우)는 0으로 되어 있다. sex는 성별이고 logWBC는 백혈구 숫자의 로그값, rx는 치료군은 1와 대조군은 0으로 되어 있다. 이 데이터 중 설명을 쉽게하기 위해 rx==1인 것만 골라 data라는 데이터를 새로 만든다.     
+
+```{r,message=FALSE}
+library(autoReg)
+library(survival)
+library(survminer)
+library(howto)
+library(flextable)
+library(ftExtra)
+
+data=subset(anderson,rx==1)
+```
+
+## 생존률의 계산
+
+생존분석에서는 다른 분석과는 달리 event가 생기지 않은 모든 예는 정확한 생존기간을 알 수 없기 때문에 모두 중도절단 자료로 취급한다. 즉, 연구종료시까지 event가 생기지 않고 종료된 경우나 추적실패(follow-up loss) 또는 중도탈락의 경우(drop-out)도 모두 절단된 데이터이다. 이 데이터에서 time은 숫자로 되어 있으나 생존분석을 위해서는 중도절단된 자료에는 숫자에 "+"를 붙여 중도절단임을 나타내어야 한다. survival 패키지의 Surv함수가 그 역할을 해준다.
+
+```{r}
+data$time
+with(data, Surv(time,status))
+```
+이제 이 자료를 시간순서대로 정렬하여 생존률을 계산한다. R에서는 survfit함수를 써서 생존률을 계산한다. 생존률을 계산하는 과정을 설명하기 위해 howto패키지의 howto()함수를 사용하여 계산과정을 보여준다.  
+ 
+```{r}
+fit=survfit(Surv(time,status)~1,data=data)
+howto(fit) %>% 
+  highlight(i=1,j=6,color="yellow") %>%
+  highlight(i=2,j=c(2,3,5),color="yellow")
+```
+먼저 연구시작 시점에서 대상 환자수(number at risk, n.risk)는 21명이었고 아직 event가 발생하지 않았으므로(n.event=0) 생존률은  21/21=1 이다. 6주째에 3명에서 event가 발생하였다. 6주 째의 n.risk는 21명이고 이 중 event가 발생한 3명을 제외하고 18명이 생존하였다. 따라서 6주째 생존률은 다음과 같다. $\hat{S}(6)$ 은 $S(6)$의 추정량이라는 뜻이다. 
+
+$$\hat{S}(6)=1 \times \frac{(21-3)}{21} = 1\times\frac{18}{21}=0.8571$$이 된다. 
+
+
+7주 째의 number at risk는 6주째에 3명 실패(event 발생), 1명 중도절단되어 17명이고 생존률은 $0.8571 \times (16 \div 17)=0.8067$ 이 된다. 이 값은 다음과 같다.
+
+$$\hat{S}(7)=1\times \frac{18}{21} \times \frac{16}{17}$$
+13주째 생존률은 다음과 같이 계산된다. 
+
+$$\hat{S}(13)=1\times \frac{18}{21} \times \frac{16}{17}\times\frac{14}{15}\times \frac{11}{12}=0.6902$$
+이를 이용하여 생존률 그래프를 그릴 수 있다. 
+
+```{r}
+plot(fit)
+```
+
+
+survminer 패키지의 ggsurvplot()을 이용하면 보다 보기좋은 그래프를 얻을 수 있다. 
+```{r}
+library(survminer)
+ggsurvplot(fit,data=data)
+```
+
+
+### 참고 : 조건부확률
+
+먼저 연구시작 시점에서 대상 환자수(number at risk, n.risk)는 21명이었고 아직 event가 발생하지 않았으므로(n.event=0) 생존률은  21/21=1 이다. 6주째에 3명에서 event가 발생하였다. 따라서 생존률은 $1.0 \times (21-3) \div 21 = 18\div21=0.8571$이 된다. 이를 달리 표현하면 6주까지 살아있는 사람 중 6주를 초과하여 살아있는 비율이다.
+
+$$\hat{S}(6)= P(T>6 | T\geq 6) = \frac{18}{21} $$
+
+잠깐 여기서 조건부확률에 관한 수학지식을 복습해본다. A라는  사건이 일어날 확률을 $P(A)$, B라는 사건이 일어날 확률을 $P(B)$라고 하면 사건 B가 일어났다는 가정하에 사건 A가 일어날 조건부확률을 $P(A|B)$로 표기한다. 이 조건부확률은 다음과 같다.  
+
+$$P(A|B)=\frac{P(A\cap B)}{P(B)}$$
+
+A와 B가 동시에 일어날 확률 $P(A\cap B)$는 다음과 같다.
+
+$$P(A \cap B)=P(A|B)\times P(B)= P(B|A)\times P(A)$$
+
+
+따라서 조건부확률 $P(A|B)$를 다음과 같이 쓸 수 있다..
+
+$$P(A|B)=\frac{P(A\cap B)}{P(B)}=\frac{P(A) \times P(B|A)}{P(B)}$$
+위에서 $\hat{S}(6)= P(T>6 | T\geq 6)$는 조건부 확률로 $T>6$인 경우 항상 $T \geq 6$ 이므로 다음과 같이 쓸 수 있다.
+
+$$P(T>6\  |\  T\geq 6)=\frac{P(T >6)\times P(T \geq6\ |\ T> 6)}{P(T\geq 6)}=\frac{P(T>6)}{P(T \geq6)}=\frac{18}{21}$$
+
+### K-M 생존율의 일반화
+
+위에서 살펴본 K-M 생존률을 일반화하면 다음과 같다. f번째 시간 $t_f$의 생존률은 그 시간 전까지의 추정생존율에 조건부확률인 $P(T > t_{(f)}\ |\ P \geq t_{(f)})$을 곱한 값이 된다. 
+
+$$\hat{S}(t_{(f)})=\hat{S}(t_{(f-1))}\times\hat{P}(T>t_{(f)}\ |\ T \geq t_{(f)})$$
+K-M 생존률을 구하는 승법극한추정량(product limit estimator)은 다음과 같다.
+
+$$\hat{S}(t_{(f)})=\prod_{i=1}^{f}\hat{P}(T>t_{(f)}\ |\ T \geq t_{(f)})$$
+
+###  연습문제 
+
+anderson1 데이터를 이용해 생존곡선을 구하고 있다. 잎절에서는 설명의 편의상 치료군만을 대상으로 생존률을 구하였으나 치료군, 대조군 모두에서 생존률을 구하고자 한다. 다음 표에서 빈칸을 채우시오.   
+
+```{r}
+fit=survfit(Surv(time,status)~rx,data=anderson1)
+howto(fit) %>% hide(i=5:7,j=6:7) %>% hide(i=14:17,j=6:7,color="blue")
+```
+
+## 로그순위검정(log-rank test)
+
+### 두 군간의 K-M 생존곡선 비교 
+
+로그순위검정은 두 개의 생존곡선이 통계적으로 동등한지를 검정하는 것이다. 두 개의 생존곡선이 통계적으로 동등하다는 것은 두 개의 생존곡선을 전체적으로 볼 때 true survival curve가 다르다는 근거가 없다는 뜻이다. 로그순위 검정은 두 개의 생존곡선을 전체적을 비교하기 위해 각각의 시간에서 두 군의 기대값과 관찰값의 차이를 구하여 검정통계량을 계산하는 카이제곱 검정의 일종이라고 보면 된다. autoReg 패키지의 anderson1 데이터를 예로 검정통계량을 구해본다. 먼저 두 군의 비교를 위해 survfit함수를 이용해 분석을 해본다. 
+
+```{r}
+fit1=survfit(Surv(time,status)~rx,data=anderson1)
+summary(fit1)
+```
+
+위의 결과를 보면 치료군 21명중 23주째의 생존률은 0.448이며 대조군은 23주째 생존율 0을 보이고 있다. 두 군간의 생존곡선을 그려보면 다음과 같다. 
+
+```{r}
+ggsurvplot(fit1,data=anderson1,pval=TRUE)
+```
+
+위으 그래프에서 보이는 p값이 로그순위 검정의 p 값으로 다음과 같은 R 명령어로 구할 수 있다.
+
+```{r}
+survdiff(Surv(time,status)~rx,data=anderson1)
+```
+로그순위검정 통계량은 16.8이며 이 통계량은 자유도 1인 카이제곱분포를 따르고 p값은 매우 낮으므로 두 곡선은 동등하지 않다고 할 수 있다. 
+
+위의 검정량을 구하는 과정을 살펴보자. 
+
+```{r}
+ft=howto2(fit1)
+ft %>% highlight(i=2,j=c(2:7))
+```
+
+위의 표 중 첫번쨰 열은 시간(t)으로 주수를 나타내고 2-3번째 열은 각각 대조군(f1)과 치료군(f2)의 실패건수를 나타내며 이 값은 관찰값이다. 4-5번쨰 열은 대조군(n1)과 치료군(n2)의 number at risk 를 나타낸다. 6-7번째 열은 대조군(e1f)과 실험군(e2f)에서 실패의 기대값이 된다. 8-9번째 열은 관찰값에서 기댓값을 뺀 값이고 10번째 열은 관찰값과 기대값에 대한 분산이다. 노란색으로 하이라이트된 두번째 향을 보자. 2주째에 n.risk는 대조군과 실험군에서 각각 19,21명이며 실패는 대조군에서 2, 치료군에서 0이 관찰되었다. 이 때  실패의 기대값은 대조군은 $(n1/(n1+n2))\times(n1+n2)$이며 치료군은 $(n2/(n1+n2))\times(n1+n2)$ 이다. 관찰값에서 기댓값을 뺀 값은 열 f1-e1f과 f2-e2f에 계산되어 있다. 또한 관찰값-기댓값의 추정분산은 다음 공식으로 계산한다.
+
+$$Var(O_i-E_i)=\frac{n_1n2(f1+f2)(n1+n2-f1-f2)}{(n1+n2)^2(n1-n2-1)}$$
+
+로그순위 검정량은 다음 공식으로 계산한다.
+
+$$Log-rank\ statistic= \frac{(O_2-E_2)^2}{Var(O_2-E_2)}=\frac{(-10.25)^2}{6.26}\approx16.79$$
+
+위의 값은 반올림된 값으로 실제 값은 attr(ft,"x2")에 저장되어 있다. 이 통계량은 자유도 1인 카이제곱 분포를 따르므로 p값은 다음과 같이 계산할 수 있다.
+
+```{r}
+attr(ft,"x2")
+pchisq(attr(ft,"x2"),df=1,lower.tail=FALSE)
+```
+
+### 세 군 이상인 경우의 로그순위검정
+
+세군 이상인 경우으 로그순위 검정도 survdiff()함수를 통해 시행할 수 있다. 이 때  로그순위 검정의 귀무가설(Null hypothesis:$H_0$)은 "모든 생존곡선이 동등하다" 이다. 세 군 이상의 로그 순위검정을 위하여는 각 군의 관찰값과 기대값의 합의 분산과 공분산을 포함하는 복잡한 수식이 사용되지만 수작업으로 계산하지는 않는다. 예제로는 survival 패키지의 대장암데이터를 사용한다. 이 데이터는 stage B/C의 대장암 환자의 데이터로 관찰군(Obs(ervation))과 Lev(amisole),Lev(amisole)+5-FU 세 군의 생존을 비교한다.  
+
+```{r}
+data(cancer,package="survival")
+survdiff(Surv(time,status)~rx,data=colon)
+```
+세 군이상의 로그순위 검정에서 통계량은 다음의 근사식이 사용되는데 이 통계량은 군의 갯수-1의 자유도를 갖는 카이제곱 분포를 따른다. 
+
+$$\chi^2 \approx \sum_{i=1}^{n} \frac{(O_i-E_i)^2}{E_i}$$
+위의 경우 통계량은 33.6(자유도 2)으로 매우 적은 p값을 보인다. 이 데이터로 생존곡선을 그려보면 다음과 같다.
+
+```{r}
+fit2=survfit(Surv(time,status)~rx,data=colon)
+ggsurvplot(fit2,data=colon,pval=TRUE)
+```
+
+### 로그순위검정의 대안
+
+로그순위검정의 대안으로 여러가지 통계적인 방법들이 제안되어 있는데 이들 방법은 통계량을 구할때 가중치를 주어 계산한다. Wilcoxon, Tarone-Ware, Peto, Flemington-Harrington 검정 등이 알려져 있는데 가중치를  주는 방법에 따라 초기의 실패에 더 가중치를 주기도 한다. 
+
+$$Test\ statistic=\frac{(\sum_f w(t_f)(O_i-E_i))^2}{Var(\sum_f w(t_f)(O_i-E_i{}{}))}$$
+
+위의 식에서 가중치 $W(t_f)=weight\ at\ fth\ failure\ time$ 으로 여러 검정 방법들은 가중치에 따라 그 결과가 달라진다.
+
+```{r,echo=FALSE}
+a=c("Log Lank","Wilcoxon","Tarone-Ware","Peto","Flemington-Harrington")
+b=c("1","$n_f$","sqrt($n_f$)","$\\hat{s}(t_f)$","$\\hat{S}(t_{(f-1)})^P\\times [1-\\hat{S}(t_{(f-1)})]^q$")
+df=data.frame(a,b)
+names(df)=c("Test Statistic","$w(t_f)$")
+flextable(df) %>% colformat_md(part="all") %>% autofit()
+```
+
+pancreatic2 데이터는 췌장암 환자의 생존에 관한 데이터로 asuer패키지에 포함되어 있다.  이 데이터에서 pfs는 병기의 진행이 없는 생존(progression free survival)을 나타낸다. 이 데이터로 병기에 따른 생존곡선을 비교해본다. 
+
+```{r}
+data(pancreatic2,package="asaur")
+survdiff(Surv(pfs)~stage,data=pancreatic2)
+```
+
+로그순위검정에서 국소진행암(LA, locally advanced)과 전이된암(M, metastatic)의 pfs 생존곡선이 동등하지 않다는 근거는 없다고 할 수 있다. 생존곡선을 보면 다음과 같다.
+
+```{r}
+fit4=survfit(Surv(pfs)~stage,data=pancreatic2)
+ggsurvplot(fit4,data=pancreatic2,pval=TRUE)
+```
+
+이 데이터에서 survdiff()함수에 rho=1로 옵션을 주어 검정을 하면 Peto의 수정방법으로 검정을 한다. 
+
+```{r}
+survdiff(Surv(pfs)~stage,data=pancreatic2,rho=1)
+```
+
+검정결과 p 값은 0.03으로 유의하다. 이 검정방법은 초기의 생존시간에 가중치를 주기 때문에 국소진행암이 초기에 생존에 유리한 것으로 나타난다. 
+
+```{r}
+ggsurvplot(fit4,data=pancreatic2,pval=TRUE,log.rank.weights="S1")
+```
+
+### 연습문제 
+
+로그순위검정을 위해 기대값을 계산하고자 한다. 다음 예에서 빈칸을 채우시오
+
+```{r}
+fit=survfit(Surv(time,status)~x,data=aml)
+howto2(fit) %>% hide(i=5:7,j=6:7) %>% hide(i=10:11,j=3:5,color="blue")
+```

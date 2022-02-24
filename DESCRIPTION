@@ -15,8 +15,14 @@ Imports:
    dplyr,
    rlang,
    autoReg,
-   survival
+   survival,
+   survminer,
+   asaur
 License: GPL-3
 LazyData: true
 Encoding: UTF-8
 RoxygenNote: 7.1.2
+Suggests: 
+    rmarkdown,
+    knitr
+VignetteBuilder: knitr

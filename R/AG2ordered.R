@@ -36,3 +36,8 @@ AG2ordered=function(data,id="id",status="status",start="start",stop="stop"){
   }
   data.frame(t=ftime,n=n,m=m,q=q,id=subid)
 }
+
+
+
+
+

@@ -59,7 +59,11 @@ howto2=function(fit){
     strata=names(fit$strata)[z]
     result=data.frame(time=0,n.risk=y,n.event=0,n.censor=0,strata=strata)
     j=1
+    x
+    time
+    result
     for(i in 1:nrow(x)){
+
       if(x$time[i]>time[j]){
         while(x$time[i]>time[j]){
           result=rbind(result,result[nrow(result),])
@@ -75,11 +79,14 @@ howto2=function(fit){
       }
       result=rbind(result,x[i,])
       j=j+1
+      result
       if(i==nrow(x)){
         while(j<=length(time)){
           result=rbind(result,result[nrow(result),])
           result$time[nrow(result)]=time[j]
+          result$n.risk[nrow(result)]=result$n.risk[nrow(result)]-result$n.event[nrow(result)]-result$n.censor[nrow(result)]
           result$n.event[nrow(result)]=0
+          result$n.censor[nrow(result)]=0
           j=j+1
         }
       }
@@ -100,7 +107,7 @@ howto2=function(fit){
     e2=.data$n2/(.data$n1+.data$n2)*(.data$f1+.data$f2),
     oe1=.data$f1-.data$e1,
     oe2=.data$f2-.data$e2,
-    varOE=(.data$n1*.data$n2*(.data$f1+.data$f2)*(.data$n1+.data$n2-.data$f1-.data$f2))/((.data$n1+.data$n2)^2*(.data$n1+.data$n2-1))
+    varOE=ifelse(.data$n1+.data$n2==1,0,(.data$n1*.data$n2*(.data$f1+.data$f2)*(.data$n1+.data$n2-.data$f1-.data$f2))/((.data$n1+.data$n2)^2*(.data$n1+.data$n2-1)))
   ) ->df
 
   df

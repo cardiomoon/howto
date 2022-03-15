@@ -1,6 +1,7 @@
 #'Explain how to perform log-rank test
 #'
 #' @param fit An object of class survfit
+#' @param digits Integer indicating the number of decimal places
 #' @return A flextable or NULL
 #' @importFrom flextable flextable as_grouped_data autofit align add_footer_row add_header_row
 #'    colformat_double
@@ -16,7 +17,7 @@
 #' fit=survfit(Surv(time,status)~rx,data=anderson)
 #' survdiff(Surv(time,status)~rx,data=anderson)
 #' howto2(fit)
-howto2=function(fit){
+howto2=function(fit,digits=2){
 
   if(!("survfit" %in% class(fit))) {
     cat("\nhowto2 function support class 'survfit' only!\n")
@@ -111,8 +112,8 @@ howto2=function(fit){
   ) ->df
 
   df
-  df1=data.frame(t="Total",f1=round(sum(df$f1)),f2=round(sum(df$f2)),n1="",n2="",e1f=round(sum(df$e1),2),e1="",
-                 e2f=round(sum(df$e2),2),e2="",oe1=sum(df$oe1),oe2=sum(df$oe2),varOE=sum(df$varOE))
+  df1=data.frame(t="Total",f1=round(sum(df$f1)),f2=round(sum(df$f2)),n1="",n2="",e1f=round(sum(df$e1),digits),e1="",
+                 e2f=round(sum(df$e2),digits),e2="",oe1=sum(df$oe1),oe2=sum(df$oe2),varOE=sum(df$varOE))
   df=rbind(df,df1)
 
   x2=(df1$oe1)^2/df1$varOE
@@ -122,12 +123,12 @@ howto2=function(fit){
     add_header_row(values=c("","# Failures","# at risk","# Expected","Obs-Exp","Var(O-E)"),
                    colwidths=c(1,2,2,2,2,1)) %>%
     colformat_md() %>%
-    colformat_double(j=8:10,digits=2) %>%
+    colformat_double(j=8:10,digits=digits) %>%
     align(align="center",part="header") %>%
     align(j=1:5,align="center") %>%
     align(j=6:9,align="right") %>%
     hline(i=nrow(df)-1) %>%
-    add_footer_row(values=paste0("Log-rank statistic=",format(round(x2,2)),
+    add_footer_row(values=paste0("Log-rank statistic=",format(round(x2,digits)),
                                 " on 1 degrees of freedom, p= ",format.pval(p,digits=4)),colwidths = 10) %>%
     autofit()
 

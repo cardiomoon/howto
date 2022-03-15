@@ -4,10 +4,12 @@
 \alias{howto2}
 \title{Explain how to perform log-rank test}
 \usage{
-howto2(fit)
+howto2(fit, digits = 2)
 }
 \arguments{
 \item{fit}{An object of class survfit}
+
+\item{digits}{Integer indicating the number of decimal places}
 }
 \value{
 A flextable or NULL
